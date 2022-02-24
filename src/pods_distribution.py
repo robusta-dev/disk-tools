@@ -1,22 +1,22 @@
 import json
 import os
-import pprint
 from typing import Dict, Optional, List
 
 import dpath.util
 import psutil
-from psutil._common import usage_percent
 
 
 class DiskUtils:
     @staticmethod
     def get_size(directory_path) -> int:
         total_size = 0
-        for dir_path, _, file_names in os.walk(directory_path):
-            for f in file_names:
-                fp = os.path.join(dir_path, f)
-                # skip if it is symbolic link
-                if not os.path.islink(fp):
+        for root, dirs, files in os.walk(directory_path):
+            if root == directory_path:  # skip procfs if it is present ({directory_path}/proc)
+                dirs[:] = [d for d in dirs if d != "proc"]
+
+            for f in files:
+                fp = os.path.join(root, f)
+                if not os.path.islink(fp):  # skip if it is symbolic link
                     total_size += os.path.getsize(fp)
 
         return total_size
@@ -96,12 +96,15 @@ def get_pods_disk_distribution() -> (Dict[Pod, List[Container]], List[str]):
             warnings.append(f"failed to get container information from {container_dir}: " + str(e))
 
     # Create a mapping between pods and the containers they host
+    current_pod = Pod(os.environ["CURRENT_POD_NAME"], os.environ["CURRENT_POD_NAMESPACE"])
     pods_to_containers: Dict[Pod, List[Container]] = {}
     for c in containers:
         pod = Pod(c.pod_name, c.pod_namespace)
-        if pod not in pods_to_containers:
-            pods_to_containers[pod] = []
+        if pod == current_pod:  # exclude the containers of the pod that is currently executing
+            continue
 
+        if pod not in pods_to_containers and pod != current_pod:
+            pods_to_containers[pod] = []
         pods_to_containers[pod].append(c)
 
     return pods_to_containers, warnings
