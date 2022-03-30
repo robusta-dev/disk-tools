@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 
 import dpath.util
 import psutil
@@ -23,16 +23,6 @@ class DiskUtils:
 
 
 class Container:
-    container_dir: str
-    id: str
-
-    container_type: str
-    container_name: Optional[str]
-    pod_name: str
-    pod_namespace: str
-
-    disk_size: int
-
     def __init__(self, container_dir: str):
         self.container_dir = container_dir
         self.id = os.path.basename(container_dir)
@@ -61,9 +51,6 @@ class Container:
 
 
 class Pod:
-    pod_name: str
-    namespace: str
-
     def __init__(self, pod_name: str, namespace: str):
         self.pod_name = pod_name
         self.namespace = namespace
@@ -78,7 +65,7 @@ class Pod:
         return f"Pod(pod_name={self.pod_name}, namespace={self.namespace})"
 
 
-def get_pods_disk_distribution() -> (Dict[Pod, List[Container]], List[str]):
+def get_pods_disk_distribution() -> Tuple[Dict[Pod, List[Container]], List[str]]:
     partitions = psutil.disk_partitions(all=True)
 
     # Create a list of container objects
@@ -111,10 +98,6 @@ def get_pods_disk_distribution() -> (Dict[Pod, List[Container]], List[str]):
 
 
 class DiskStats:
-    total: int
-    used: int
-    available_to_root: int
-
     def __init__(self, total: int, used: int, available_to_root: int):
         self.total = total
         self.used = used
