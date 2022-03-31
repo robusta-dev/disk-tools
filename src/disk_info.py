@@ -1,6 +1,6 @@
 import json
 import os
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 import re
 
 import psutil
@@ -95,7 +95,7 @@ class ContainerDiskInfo:
         self.disk_size = disk_size
 
 
-def get_containers_disk_info() -> Tuple[List[ContainerDiskInfo], List[str]]:
+def get_pods_disk_info() -> Tuple[Dict[str, ContainerDiskInfo], List[str]]:
     # Create a dictionary of containers disk info by container id
     warnings: List[str] = []
     containers_map = {}
@@ -113,8 +113,15 @@ def get_containers_disk_info() -> Tuple[List[ContainerDiskInfo], List[str]]:
     containers: List[ContainerDiskInfo] = []
     for c in containers_map.values():
         containers.append(c)
+    
+    # Map pod ids to containers
+    pods_to_containers = {}
+    for c in containers:
+        if c.pod_uid not in pods_to_containers:
+            pods_to_containers[c.pod_uid] = []
+        pods_to_containers[c.pod_uid].append(c)
 
-    return containers, warnings
+    return pods_to_containers, warnings
 
 
 #######################################################
@@ -131,14 +138,16 @@ def get_disk_info():
     }
 
     # Calculate and format pods disk distribution
-    containers_disk_info, warnings = get_containers_disk_info()
+    pods_disk_info, warnings = get_containers_disk_info()
     pods_distribution_json_obj = {
-        "containers_distribution": [
+        "pods_distribution": [
             {
-                "container_id": cdi.container_id,
-                "pod_uid": cdi.pod_uid,
-                "disk_size": cdi.disk_size
-            } for cdi in containers_disk_info
+                "pod_uid": pod_uid,
+                "containers": [{
+                    "container_id": c.container_id,
+                    "disk_size": c.disk_size
+                } for c in containers]
+            } for pod_uid, containers in pods_disk_info
         ],
         "warnings": warnings
     }
@@ -146,7 +155,7 @@ def get_disk_info():
     # Create and return an object that contains both the node disk stats and pods disk distribution
     json_obj = {
         "disk_stats": disk_stats_json_obj,
-        "containers_disk_info": pods_distribution_json_obj
+        "pods_disk_info": pods_distribution_json_obj
     }
     return json_obj
 
