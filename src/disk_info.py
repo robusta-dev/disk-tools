@@ -138,7 +138,7 @@ def get_disk_info():
     }
 
     # Calculate and format pods disk distribution
-    pods_disk_info, warnings = get_containers_disk_info()
+    pods_disk_info, warnings = get_pods_disk_info()
     pods_distribution_json_obj = {
         "pods_distribution": [
             {
@@ -147,7 +147,7 @@ def get_disk_info():
                     "container_id": c.container_id,
                     "disk_size": c.disk_size
                 } for c in containers]
-            } for pod_uid, containers in pods_disk_info
+            } for pod_uid, containers in pods_disk_info.items()
         ],
         "warnings": warnings
     }
