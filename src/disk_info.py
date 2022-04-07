@@ -4,17 +4,17 @@ from typing import Dict, List, Tuple
 import re
 
 import psutil
+import pydantic
 
 
 #######################################################
 ################### Node disk info ####################
 #######################################################
 
-class DiskStats:
-    def __init__(self, total: int, used: int, available_to_root: int):
-        self.total = total
-        self.used = used
-        self.available_to_root = available_to_root
+class DiskStats(pydantic.BaseModel):
+    total: int
+    used: int
+    available_to_root: int
 
 
 def node_disk_stats() -> DiskStats:
@@ -72,6 +72,10 @@ def get_process_details(pid: int):
     return None, None
 
 
+def get_cmdline(pid: int) -> str:
+    return open(f"/proc/{pid}/cmdline").read()
+
+
 class DiskUtils:
     @staticmethod
     def get_size(dir_path: str) -> int:
@@ -88,35 +92,46 @@ class DiskUtils:
         return total_size
 
 
-class ContainerDiskInfo:
-    def __init__(self, container_id: str, pod_uid: str, disk_size: int):
-        self.container_id = container_id
-        self.pod_uid = pod_uid
-        self.disk_size = disk_size
+class ContainerDiskInfo(pydantic.BaseModel):
+    container_id: str
+    pod_uid: str
+    disk_size: int
 
 
 def get_pods_disk_info() -> Tuple[Dict[str, ContainerDiskInfo], List[str]]:
-    # Create a dictionary of containers disk info by container id
+    # Create a list of containers disk info
     warnings: List[str] = []
-    containers_map = {}
+    containers: List[ContainerDiskInfo] = []
+    container_ids = set()
     for pid in psutil.pids():
         try:
             pod_uid, container_id = None, None # in case of an exception in `get_process_details`
             pod_uid, container_id = get_process_details(pid)
-            if pod_uid is not None and container_id is not None and container_id not in containers_map:
-                disk_size = DiskUtils.get_size(f"/proc/{pid}/root")
-                containers_map[container_id] = ContainerDiskInfo(container_id, pod_uid, disk_size)
+            if pod_uid is None or container_id is None or container_id in container_ids:
+                continue
+            container_ids.add(container_id)
+
+
+            # Names of pause containers (and information about them in general) cannot be obtained by k8s' API Server.
+            # We therefore show container_name="pause-container" in the UI (rather the actual container id)
+            # in order to indicate the user that this is a pause container.
+            cmdline = get_cmdline(pid)
+            if cmdline == "/pause\x00":
+                container_id = "pause-container"
+
+
+            disk_size = DiskUtils.get_size(f"/proc/{pid}/root")
+            containers.append(ContainerDiskInfo(container_id=container_id, pod_uid=pod_uid, disk_size=disk_size))
         except Exception as e:
             warnings.append(f"failed to extract information for process id {pid} (pod_uid={pod_uid}, container_id={container_id}): " + str(e))
 
-    # Create a list of container from dictionary values
-    containers: List[ContainerDiskInfo] = []
-    for c in containers_map.values():
-        containers.append(c)
-    
-    # Map pod ids to containers
+    # Map pod ids to their corresponding containers
+    current_pod_uid = os.environ["CURRENT_POD_UID"]
     pods_to_containers = {}
     for c in containers:
+        if c.pod_uid == current_pod_uid: # Skip the current pod
+            continue
+
         if c.pod_uid not in pods_to_containers:
             pods_to_containers[c.pod_uid] = []
         pods_to_containers[c.pod_uid].append(c)
