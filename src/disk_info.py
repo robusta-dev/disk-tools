@@ -47,6 +47,9 @@ other_regex2 = re.compile(r"\d+:.+:/kubepods/.*/pod([^/]+)/([0-9a-f]{64})")
 other_regex3 = re.compile(
     r"\d+:.+:/kubepods\.slice/kubepods-[^/]+\.slice/kubepods-[^/]+-pod([^/]+)\.slice/docker-([0-9a-f]{64})"
 )
+other_regex4 = re.compile(
+    r"\d+:.+:/kubepods\.slice/kubepods-[^/]+\.slice/kubepods-[^/]+-pod([^/]+)\.slice/cri-containerd-([0-9a-f]{64})"
+)
 
 
 def get_process_details(pid: int):
@@ -65,6 +68,7 @@ def get_process_details(pid: int):
                 or other_regex.match(line)
                 or other_regex2.match(line)
                 or other_regex3.match(line)
+                or other_regex4.match(line)
             )
             if match is not None:
                 # pod, container
