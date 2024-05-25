@@ -1,0 +1,1 @@
+docker buildx build --platform linux/arm64,linux/amd64 --tag us-central1-docker.pkg.dev/genuine-flight-317411/devel/disk-tools:1.5 --push .
