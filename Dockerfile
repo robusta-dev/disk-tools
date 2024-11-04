@@ -11,7 +11,7 @@ RUN python -m venv /app/venv
 
 RUN apt-get update \
   # required for psutil python package to install
-  && apt-get install -y gcc python3-dev \
+  && apt-get install -y gcc \
   && dpkg --add-architecture arm64 \
   && apt-get purge -y --auto-remove \
   && rm -rf /var/lib/apt/lists/*
