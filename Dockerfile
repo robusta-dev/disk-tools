@@ -31,4 +31,11 @@ ENV PYTHONPATH=$PYTHONPATH:.
 COPY src /app/src
 COPY --from=builder /app/venv /venv
 
+# --- Fix CVE-2025-8869: Upgrade pip in system Python and clean up ---
+RUN python -m pip uninstall -y pip && \
+    rm -rf /usr/local/lib/python3.12/site-packages/pip* && \
+    python -m ensurepip --upgrade && \
+    python -m pip install --no-cache-dir pip==25.3 && \
+    rm -rf /usr/local/lib/python3.12/ensurepip/_bundled/*
+
 ENTRYPOINT ["python", "/app/src/disk_info.py"]
